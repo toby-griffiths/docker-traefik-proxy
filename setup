@@ -92,13 +92,47 @@ EOF
 
 echo
 echo "Adding certificate as trustRoot to keychain"
+
+org_name=$(docker compose -p "${project_name}" exec traefik sh -c "openssl x509 -in server.crt -noout -subject -nameopt multiline | grep organizationName | sed -n 's/ *organizationName *= //p'")
 mkdir /tmp/traefik-proxy || true
-docker compose -p "${project_name}" cp traefik:/opt/traefik/certs /tmp/traefik-proxy/.
-sudo security add-trusted-cert \
-    -d \
-    -r trustRoot \
-    -k /Library/Keychains/System.keychain \
-    /tmp/traefik-proxy/certs/server.crt
+cert_filename="${org_name}.crt"
+cert_file="/tmp/traefik-proxy/${cert_filename}"
+
+docker compose -p "${project_name}" cp traefik:/opt/traefik/certs/server.crt "${cert_file}"
+
+case "$(uname -s)" in
+    Linux*)
+      if [[ -d "/etc/pki/ca-trust/source/anchors" ]] ; then
+        system_trust_certificate_directory="/etc/pki/ca-trust/source/anchors/"
+        system_trust_store_update_command="update-ca-trust extract"
+      elif [[ -d "/usr/local/share/ca-certificates" ]] ; then
+        system_trust_certificate_directory="/usr/local/share/ca-certificates/"
+        system_trust_store_update_command="update-ca-certificates"
+      elif [[ -d "/etc/ca-certificates/trust-source/anchors/" ]] ; then
+        system_trust_certificate_directory="/etc/ca-certificates/trust-source/anchors/"
+        system_trust_store_update_command="trust extract-compat"
+      elif [[ -d "/usr/share/pki/trust/anchors" ]] ; then
+        system_trust_certificate_directory="/usr/share/pki/trust/anchors/"
+        system_trust_store_update_command="update-ca-certificates"
+      fi
+
+      echo "${system_trust_certificate_directory?'Unknown platform type'}" > /dev/null
+
+      sudo cp "${cert_file}" "${system_trust_certificate_directory}/${cert_filename}"
+      sudo ${system_trust_store_update_command}
+      ;;
+    Darwin*)
+      # This has to install to the System keychain, as trying to install to the
+      # user's login still requires an admin password, and then appears to
+      # install it in a way that is inaccessible to the user, so doesn't work.
+      sudo security add-trusted-cert \
+          -d \
+          -r trustRoot \
+          -k /Library/Keychains/System.keychain \
+          /tmp/traefik-proxy/certs/server.crt
+      ;;
+esac
+
 rm -Rf /tmp/traefik-proxy
 
 echo
