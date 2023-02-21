@@ -125,6 +125,15 @@ echo "See https://doc.traefik.io/traefik/ for details of the Traefik configurati
 echo
 echo "See https://github.com/traefik/traefik-library-image for details of the underlying Docker image."
 echo
+echo "To list resources…"
+echo
+echo "    # Containers…"
+echo "    $ docker ps --filter \"label=service=${name}-traefik-proxy\""
+echo "    # Networks…"
+echo "    $ docker network ls --filter \"label=service=${name}-traefik-proxy\""
+echo "    # Volumes…"
+echo "    $ docker volume ls --filter \"label=service=${name}-traefik-proxy\""
+echo
 echo
 echo "To clean things up afterwards, run…"
 echo
