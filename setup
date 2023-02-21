@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 
+set -x
+
 echo
 
 network_exists=1
