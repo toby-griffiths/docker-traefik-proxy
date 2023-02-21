@@ -7,7 +7,7 @@ Creates a reverse proxy based on Docker container labels.
 Download and execute the setup script…
 
 ```
-$ curl --silent https://raw.githubusercontent.com/toby-griffiths/docker-traefik-proxy/main/setup | sh
+$ wget -O - https://raw.githubusercontent.com/toby-griffiths/docker-traefik-proxy/main/setup | sh
 ```
 
 See script output for details of how to label your containers for proxying.
