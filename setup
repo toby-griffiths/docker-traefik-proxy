@@ -159,6 +159,9 @@ case "$(uname -s)" in
           -k /Library/Keychains/System.keychain \
           "${cert_file}"
       ;;
+    *)
+      echo "Unsupported platform.  Cannot install trustRoot"
+      exit 1
 esac
 
 rm -Rf /tmp/traefik-proxy
