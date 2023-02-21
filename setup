@@ -61,7 +61,6 @@ services:
       - "443:443"
       - "8080:8080" # The Web UI (enabled by --api)
     networks:
-      - public
       - traefik
     volumes:
       - certs:/opt/traefik/certs
