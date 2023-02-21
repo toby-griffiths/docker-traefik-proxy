@@ -1,8 +1,6 @@
 version: '3'
 
 networks:
-  public:
-    external: true
   traefik:
     external: true
 
@@ -21,7 +19,6 @@ services:
       - "443:443"
       - "8080:8080"
     networks:
-      - public
       - traefik
     volumes:
       - certs:/opt/traefik/certs
