@@ -93,10 +93,35 @@ EOF
 echo
 echo "Adding certificate as trustRoot to keychain"
 
-org_name=$(docker compose -p "${project_name}" exec traefik sh -c "openssl x509 -in server.crt -noout -subject -nameopt multiline | grep organizationName | sed -n 's/ *organizationName *= //p'")
+testForCertFile () {
+  # Prevent the failed command from exiting the whole script
+  trap "" ERR
+
+  docker compose -p "${project_name}" exec traefik ls -als | grep -q server.crt
+
+  return $?
+}
+
+echo "Waiting for certificate file…"
+limit=15
+testForCertFile
+while [[ 1 -eq $? && $limit > 0 ]] ; do
+  sleep 1
+  limit=$((limit-1))
+  echo "${limit} seconds"
+  testForCertFile
+done
+
+testForCertFile
+if [[ 1 -eq $? ]] ; then
+  echo "Timeout waiting for certificate file to be created"
+  exit 1;
+else
+  echo "Certificate file found"
+fi
+
 mkdir /tmp/traefik-proxy || true
-cert_filename="${org_name}.crt"
-cert_file="/tmp/traefik-proxy/${cert_filename}"
+cert_file="/tmp/traefik-proxy/server.crt"
 
 docker compose -p "${project_name}" cp traefik:/opt/traefik/certs/server.crt "${cert_file}"
 
@@ -118,6 +143,9 @@ case "$(uname -s)" in
 
       echo "${system_trust_certificate_directory?'Unknown platform type'}" > /dev/null
 
+      org_name=$(docker compose -p "${project_name}" exec traefik sh -c "openssl x509 -in server.crt -noout -subject -nameopt multiline | grep organizationName | sed -n 's/ *organizationName *= //p'")
+      cert_filename="${org_name}.crt"
+
       sudo cp "${cert_file}" "${system_trust_certificate_directory}/${cert_filename}"
       sudo ${system_trust_store_update_command}
       ;;
@@ -129,7 +157,7 @@ case "$(uname -s)" in
           -d \
           -r trustRoot \
           -k /Library/Keychains/System.keychain \
-          /tmp/traefik-proxy/certs/server.crt
+          "${cert_file}"
       ;;
 esac
 
