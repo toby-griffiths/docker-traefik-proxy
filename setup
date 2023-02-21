@@ -1,7 +1,5 @@
 #!/usr/bin/env sh
 
-set -ex
-
 echo
 
 network_exists=1
@@ -18,7 +16,7 @@ docker volume inspect "${certs_volume}" &>/dev/null || volume_exists=0
 
 if [ 0 = "${network_exists}" ]; then
   echo "'${network_name}' network does not exists.  Creating…"
-  docker network create --label "service=${name}-traefik-proxy" "${network_name}"
+  docker network create --label "service=${name}-traefik-proxy" "${network_name}" || (echo "Unable to create network" && exit 1)
   echo "   Done!"
 else
   echo "'${network_name}' network already exists."
@@ -27,7 +25,7 @@ echo
 
 if [ 0 = "${volume_exists}" ]; then
   echo "'${certs_volume}' volume does not exists.  Creating…"
-  docker volume create --label "service=${name}-traefik-proxy" "${certs_volume}"
+  docker volume create --label "service=${name}-traefik-proxy" "${certs_volume}" || (echo "Unable to create certs volume" && exit 1)
   echo "   Done!"
 else
   echo "'${certs_volume}' volume already exists."
@@ -90,18 +88,17 @@ services:
       traefik.http.services.traefik-whoami.loadbalancer.server.port: 80
 EOF
 
+if [[ 0 -ne $? ]] ; then
+  echo "Failed to create services"
+  exit 1
+fi
+
 echo
 echo "Adding certificate as trustRoot to keychain"
 
 testForCertFile () {
-  set +e
-
   docker compose -p "${project_name}" exec traefik ls -als | grep -q server.crt
-  result=$?
-
-  set -e
-
-  return $result
+  return
 }
 
 echo "Waiting for certificate file…"
@@ -125,7 +122,7 @@ fi
 mkdir /tmp/traefik-proxy || true
 cert_file="/tmp/traefik-proxy/server.crt"
 
-docker compose -p "${project_name}" cp traefik:/opt/traefik/certs/server.crt "${cert_file}"
+docker compose -p "${project_name}" cp traefik:/opt/traefik/certs/server.crt "${cert_file}" || (echo "Unable to fetch certificate file" && exit 1)
 
 case "$(uname -s)" in
     Linux*)
@@ -143,13 +140,13 @@ case "$(uname -s)" in
         system_trust_store_update_command="update-ca-certificates"
       fi
 
-      echo "${system_trust_certificate_directory?'Unknown platform type'}" > /dev/null
+      echo "${system_trust_certificate_directory?'Unknown platform type'}" > /dev/null || exit 1
 
       org_name=$(docker compose -p "${project_name}" exec traefik sh -c "openssl x509 -in server.crt -noout -subject -nameopt multiline | grep organizationName | sed -n 's/ *organizationName *= //p'")
       cert_filename="${org_name}.crt"
 
-      sudo cp "${cert_file}" "${system_trust_certificate_directory}/${cert_filename}"
-      sudo ${system_trust_store_update_command}
+      sudo cp "${cert_file}" "${system_trust_certificate_directory}/${cert_filename}" || (echo "Unable to copy certificate to trust store" && exit 1)
+      sudo ${system_trust_store_update_command} || (echo "Unable to udpate trust store" && exit 1)
       ;;
     Darwin*)
       # This has to install to the System keychain, as trying to install to the
@@ -160,6 +157,11 @@ case "$(uname -s)" in
           -r trustRoot \
           -k /Library/Keychains/System.keychain \
           "${cert_file}"
+
+        if [[ 0 -ne $? ]] ; then
+          echo "Unable to install certificate"
+          exit 1
+        fi
       ;;
     *)
       echo "Unsupported platform.  Cannot install trustRoot"
