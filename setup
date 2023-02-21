@@ -124,7 +124,11 @@ fi
 mkdir /tmp/traefik-proxy || true
 cert_file="/tmp/traefik-proxy/server.crt"
 
-docker compose -p "${project_name}" exec traefik cat /opt/traefik/certs/server.crt > "${cert_file}" || (echo "Unable to fetch certificate file" && exit 1)
+docker compose -p "${project_name}" exec traefik cat /opt/traefik/certs/server.crt > "${cert_file}"
+if [[ 0 -ne $? ]] ; then
+  echo "Unable to fetch certificate file"
+  exit 1
+fi
 
 case "$(uname -s)" in
     Linux*)
