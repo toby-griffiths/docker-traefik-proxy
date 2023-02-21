@@ -6,21 +6,22 @@ echo
 
 network_exists=1
 volume_exists=1
-name="${NETWORK_NAME:-traefik}"
-certs_volume="${name}_certs"
+network_name="${NETWORK_NAME:-traefik}"
+name="${network_name}"
+certs_volume="${network_name}_certs"
 fqdn="${FQDN:-dev.localhost}"
 proxy_image_name=tobygr/traefik-proxy:latest
 whoami_image_name=traefik/whoami
 
-docker network inspect "${name}" &>/dev/null || network_exists=0
+docker network inspect "${network_name}" &>/dev/null || network_exists=0
 docker volume inspect "${certs_volume}" &>/dev/null || volume_exists=0
 
 if [ 0 = "${network_exists}" ]; then
-  echo "'${name}' network does not exists.  Creating…"
-  docker network create --label "service=${name}-traefik-proxy" "${name}"
+  echo "'${network_name}' network does not exists.  Creating…"
+  docker network create --label "service=${name}-traefik-proxy" "${network_name}"
   echo "   Done!"
 else
-  echo "'${name}' network already exists."
+  echo "'${network_name}' network already exists."
 fi
 echo
 
@@ -69,7 +70,7 @@ services:
       service: ${name}-traefik-proxy
       function: reverse-proxy
       traefik.enable: true
-      traefik.docker.network: ${name}
+      traefik.docker.network: ${network_name}
       traefik.http.routers.traefik.rule: Host(\`${name}.${fqdn}\`)
       traefik.http.routers.traefik.tls: true
       traefik.http.routers.traefik.entrypoints: https
@@ -83,7 +84,7 @@ services:
       service: ${name}-traefik-proxy
       function: test-container
       traefik.enable: true
-      traefik.docker.network: ${name}
+      traefik.docker.network: ${network_name}
       traefik.http.routers.traefik-whoami.rule: Host(\`whoami.${fqdn}\`)
       traefik.http.routers.traefik-whoami.tls: true
       traefik.http.routers.traefik-whoami.entrypoints: https
@@ -104,16 +105,18 @@ rm -Rf /tmp/traefik-proxy
 echo
 echo "Traefik proxy setup"
 echo
-echo "To proxy an image add the container to the \`${name}\` network, and add the minimal"
+echo "To proxy an image add the container to the \`${network_name}\` network, and add the minimal"
 echo "labels…"
 echo
 cat <<TEXT
     services
       nginx:
         networks:
-          - ${name}
+          - ${network_name}
+          # + any other networks
         labels:
           traefik.enable: true
+          traefik.docker.network: ${network_name}
           traefik.http.routers.traefik.rule: Host(\`whoami.${fqdn}\`)
           traefik.http.routers.traefik.tls: true
           traefik.http.routers.traefik.entrypoints: https
@@ -129,7 +132,7 @@ echo
 echo "    # stop the proxy"
 echo "    $ docker rm --force \$(docker ps --filter \"label=service=${name}-traefik-proxy\" --format \"{{ .Names }}\")"
 echo "    # remove the network"
-echo "    $ docker network rm ${name}"
+echo "    $ docker network rm ${network_name}"
 echo "    # remove the certificates volume"
 echo "    $ docker volume rm ${certs_volume}"
 echo "    # remove the images"
