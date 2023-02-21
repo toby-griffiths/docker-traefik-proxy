@@ -94,12 +94,12 @@ echo
 echo "Adding certificate as trustRoot to keychain"
 
 testForCertFile () {
-  set +e;
+  set +e
 
   docker compose -p "${project_name}" exec traefik ls -als | grep -q server.crt
   result=$?
 
-  set -e;
+  set -e
 
   return $result
 }
