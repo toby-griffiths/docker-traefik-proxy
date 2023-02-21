@@ -27,8 +27,20 @@ services:
       service: traefik-proxy
       function: reverse-proxy
       traefik.enable: true
-      traefik.docker.network: traefik-proxy
       traefik.http.routers.traefik.rule: Host(`traefik.dev.localhost`)
       traefik.http.routers.traefik.tls: true
       traefik.http.routers.traefik.entrypoints: https
       traefik.http.services.traefik.loadbalancer.server.port: 8080
+
+  whoami:
+    image: traefik/whoami
+    networks:
+      - traefik
+    labels:
+      service: traefik-proxy
+      function: test-container
+      traefik.enable: true
+      traefik.http.routers.traefik-whoami.rule: Host(`whoami.${FQDN}`)
+      traefik.http.routers.traefik-whoami.tls: true
+      traefik.http.routers.traefik-whoami.entrypoints: https
+      traefik.http.services.traefik-whoami.loadbalancer.server.port: 80
