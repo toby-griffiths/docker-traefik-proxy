@@ -94,12 +94,24 @@ echo
 echo "Adding certificate as trustRoot to keychain"
 
 testForCertFile () {
-  oldopt=$-
+  local restore_errexit="";
+  if [[ -o errexit ]] ; then
+    restore_errexit="yes"
+  fi;
+
+  # Disable set -e because we rely on non-zero exit statuses for retrying
+  # commands below.
   set +e
+  echo "shell options with errexit disabled: $-"
 
   docker compose -p "${project_name}" exec traefik ls -als | grep -q server.crt
   result=$?
-  set -$oldopt
+
+  # Re-enable set -e if it was previously turned on
+  if [[ -n "$restore_errexit" ]] ; then
+    set -e
+  fi;
+  echo "shell options with errexit restored': $-"
 
   return $result
 }
