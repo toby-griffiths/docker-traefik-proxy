@@ -1,0 +1,12 @@
+# TLS certificates (created during start up)
+tls:
+  certificates:
+    - certFile: /opt/traefik/certs/server.crt
+      keyFile: /opt/traefik/certs/server.key
+      stores:
+        - default
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /opt/traefik/certs/server.crt
+        keyFile: /opt/traefik/certs/server.key

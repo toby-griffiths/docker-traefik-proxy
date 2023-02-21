@@ -1,0 +1,136 @@
+#!/usr/bin/env sh
+
+set -e
+
+echo
+
+network_exists=1
+volume_exists=1
+name="${NETWORK_NAME:-traefik}"
+certs_volume="${name}_certs"
+fqdn="${FQDN:-dev.localhost}"
+proxy_image_name=tobygr/traefik-proxy:latest
+whoami_image_name=traefik/whoami
+
+docker network inspect "${name}" &>/dev/null || network_exists=0
+docker volume inspect "${certs_volume}" &>/dev/null || volume_exists=0
+
+if [ 0 = "${network_exists}" ]; then
+  echo "'${name}' network does not exists.  Creating…"
+  docker network create --label "service=${name}-traefik-proxy" "${name}"
+  echo "   Done!"
+else
+  echo "'${name}' network already exists."
+fi
+echo
+
+if [ 0 = "${volume_exists}" ]; then
+  echo "'${certs_volume}' volume does not exists.  Creating…"
+  docker volume create --label "service=${name}-traefik-proxy" "${certs_volume}"
+  echo "   Done!"
+else
+  echo "'${certs_volume}' volume already exists."
+fi
+echo
+
+project_name="${name}-traefik-proxy"
+
+cat <<EOF | docker compose -f /dev/stdin -p "${project_name}" up -d
+version: '3'
+
+networks:
+  public:
+    external: true
+  traefik:
+    external: true
+
+volumes:
+  certs:
+    name: ${certs_volume}
+    external: true
+
+services:
+  traefik:
+    image: ${proxy_image_name}
+    restart: always
+    environment:
+      FQDN: ${fqdn}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # The Web UI (enabled by --api)
+    networks:
+      - public
+      - traefik
+    volumes:
+      - certs:/opt/traefik/certs
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      service: ${name}-traefik-proxy
+      function: reverse-proxy
+      traefik.enable: true
+      traefik.docker.network: ${name}
+      traefik.http.routers.traefik.rule: Host(\`${name}.${fqdn}\`)
+      traefik.http.routers.traefik.tls: true
+      traefik.http.routers.traefik.entrypoints: https
+      traefik.http.services.traefik.loadbalancer.server.port: 8080
+
+  whoami:
+    image: ${whoami_image_name}
+    networks:
+      - traefik
+    labels:
+      service: ${name}-traefik-proxy
+      function: test-container
+      traefik.enable: true
+      traefik.docker.network: ${name}
+      traefik.http.routers.traefik-whoami.rule: Host(\`whoami.${fqdn}\`)
+      traefik.http.routers.traefik-whoami.tls: true
+      traefik.http.routers.traefik-whoami.entrypoints: https
+      traefik.http.services.traefik-whoami.loadbalancer.server.port: 80
+EOF
+
+echo
+echo "Adding certificate as trustRoot to keychain"
+mkdir /tmp/traefik-proxy || true
+docker compose -p "${project_name}" cp traefik:/opt/traefik/certs /tmp/traefik-proxy/.
+sudo security add-trusted-cert \
+    -d \
+    -r trustRoot \
+    -k /Library/Keychains/System.keychain \
+    /tmp/traefik-proxy/certs/server.crt
+rm -Rf /tmp/traefik-proxy
+
+echo
+echo "Traefik proxy setup"
+echo
+echo "To proxy an image add the container to the \`${name}\` network, and add the minimal"
+echo "labels…"
+echo
+cat <<TEXT
+    services
+      nginx:
+        networks:
+          - ${name}
+        labels:
+          traefik.enable: true
+          traefik.http.routers.traefik.rule: Host(\`whoami.${fqdn}\`)
+          traefik.http.routers.traefik.tls: true
+          traefik.http.routers.traefik.entrypoints: https
+TEXT
+echo
+echo "See https://doc.traefik.io/traefik/ for details of the Traefik configuration."
+echo
+echo "See https://github.com/traefik/traefik-library-image for details of the underlying Docker image."
+echo
+echo
+echo "To clean things up afterwards, run…"
+echo
+echo "    # stop the proxy"
+echo "    $ docker rm --force \$(docker ps --filter \"label=service=${name}-traefik-proxy\" --format \"{{ .Names }}\")"
+echo "    # remove the network"
+echo "    $ docker network rm ${name}"
+echo "    # remove the certificates volume"
+echo "    $ docker volume rm ${certs_volume}"
+echo "    # remove the images"
+echo "    $ docker rmi ${proxy_image_name} ${whoami_image_name}"

@@ -1,0 +1,37 @@
+version: '3'
+
+networks:
+  public:
+    external: true
+  traefik:
+    external: true
+
+volumes:
+  certs: ~
+
+services:
+  traefik:
+    build: .
+    image: tobygr/traefik-proxy:latest
+    restart: always
+    environment:
+      FQDN: '${FQDN}'
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    networks:
+      - public
+      - traefik
+    volumes:
+      - certs:/opt/traefik/certs
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      service: traefik-proxy
+      function: reverse-proxy
+      traefik.enable: true
+      traefik.docker.network: traefik-proxy
+      traefik.http.routers.traefik.rule: Host(`traefik.dev.localhost`)
+      traefik.http.routers.traefik.tls: true
+      traefik.http.routers.traefik.entrypoints: https
+      traefik.http.services.traefik.loadbalancer.server.port: 8080
