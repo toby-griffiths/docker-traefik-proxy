@@ -94,12 +94,14 @@ echo
 echo "Adding certificate as trustRoot to keychain"
 
 testForCertFile () {
-  # Prevent the failed command from exiting the whole script
-  trap "" ERR
+  oldopt=$-
+  set +e
 
   docker compose -p "${project_name}" exec traefik ls -als | grep -q server.crt
+  result=$?
+  set -$oldopt
 
-  return $?
+  return $result
 }
 
 echo "Waiting for certificate file…"
