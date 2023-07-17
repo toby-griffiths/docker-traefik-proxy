@@ -1,7 +1,7 @@
 # Docker configuration backend
 providers:
   docker:
-    exposedbydefault: false
+    exposedByDefault: false
   file:
     directory: /etc/traefik/dynamic_config
     watch: true
@@ -11,7 +11,7 @@ api:
   dashboard: true
   insecure: true
 
-entrypoints:
+entryPoints:
   http:
     address: ':80'
     http:
