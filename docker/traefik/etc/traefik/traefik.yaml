@@ -21,6 +21,8 @@ entrypoints:
           to: https
   https:
     address: ':443'
+  http3:
+    address: ':443/udp'
 
 log:
   level: DEBUG
