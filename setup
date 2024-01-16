@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 
-set -x
-
 echo
+
+set -x
 
 network_exists=1
 volume_exists=1
@@ -17,8 +17,11 @@ docker network inspect "${network_name}" &>/dev/null || network_exists=0
 docker volume inspect "${certs_volume}" &>/dev/null || volume_exists=0
 
 if [ 0 = "${network_exists}" ]; then
+  set +x
   echo "'${network_name}' network does not exists.  Creating…"
+  set -x
   docker network create --label "service=${name}-traefik-proxy" "${network_name}" || (echo "Unable to create network" && exit 1)
+  set +x
   echo "   Done!"
 else
   echo "'${network_name}' network already exists."
@@ -27,12 +30,14 @@ echo
 
 if [ 0 = "${volume_exists}" ]; then
   echo "'${certs_volume}' volume does not exists.  Creating…"
+  set -x
   docker volume create --label "service=${name}-traefik-proxy" "${certs_volume}" || (echo "Unable to create certs volume" && exit 1)
   echo "   Done!"
 else
   echo "'${certs_volume}' volume already exists."
 fi
 echo
+set -x
 
 project_name="${name}-traefik-proxy"
 
@@ -90,6 +95,8 @@ services:
       traefik.http.services.traefik-whoami.loadbalancer.server.port: 80
 EOF
 
+set +x
+
 if [[ 0 -ne $? ]] ; then
   echo "Failed to create services"
   exit 1
@@ -104,14 +111,19 @@ testForCertFile () {
 }
 
 echo "Waiting for certificate file…"
+set -x
 limit=15
 testForCertFile
 while [[ 1 -eq $? && $limit > 0 ]] ; do
   sleep 1
   limit=$((limit-1))
+  set +x
   echo "${limit} seconds"
+  set -x
   testForCertFile
 done
+
+set +x
 
 testForCertFile
 if [[ 1 -eq $? ]] ; then
@@ -121,14 +133,21 @@ else
   echo "Certificate file found"
 fi
 
+set -x
+
 mkdir /tmp/traefik-proxy || true
 cert_file="/tmp/traefik-proxy/server.crt"
 
 docker compose -p "${project_name}" exec traefik cat /opt/traefik/certs/server.crt > "${cert_file}"
+
+set +x
+
 if [[ 0 -ne $? ]] ; then
   echo "Unable to fetch certificate file"
   exit 1
 fi
+
+set -x
 
 case "$(uname -s)" in
     Linux*)
@@ -146,7 +165,9 @@ case "$(uname -s)" in
         system_trust_store_update_command="update-ca-certificates"
       fi
 
+      set +x
       echo "${system_trust_certificate_directory?'Unknown platform type'}" > /dev/null || exit 1
+      set -x
 
       org_name=$(docker compose -p "${project_name}" exec traefik sh -c "openssl x509 -in server.crt -noout -subject -nameopt multiline | grep organizationName | sed -n 's/ *organizationName *= //p'")
       cert_filename="${org_name}.crt"
@@ -170,18 +191,21 @@ case "$(uname -s)" in
         fi
       ;;
     *)
+      set +x
       echo "Unsupported platform.  Cannot install trustRoot"
       exit 1
 esac
 
 rm -Rf /tmp/traefik-proxy
 
+set +x
 echo
 echo "Traefik proxy setup"
 echo
 echo "To proxy an image add the container to the \`${network_name}\` network, and add the minimal"
 echo "labels…"
 echo
+set -x
 cat <<TEXT
     services
       nginx:
@@ -195,6 +219,7 @@ cat <<TEXT
           traefik.http.routers.traefik.tls: true
           traefik.http.routers.traefik.entrypoints: https
 TEXT
+set +x
 echo
 echo "See https://doc.traefik.io/traefik/ for details of the Traefik configuration."
 echo
