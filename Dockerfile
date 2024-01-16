@@ -1,6 +1,6 @@
-ARG TRAEFIKVERSION=2.11
+ARG TRAEFIK_VERSION=2.11
 
-FROM traefik:$TRAEFIKVERSION
+FROM traefik:$TRAEFIK_VERSION
 
 # provide the servername as a configurable option
 # note that this is self signed so you should still add it to your
