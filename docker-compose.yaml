@@ -9,8 +9,16 @@ volumes:
 
 services:
   traefik:
-    build: .
-    image: tobygr/traefik-proxy:latest
+    build:
+      context: "."
+      args:
+        TRAEFIK_VERSION: '${TRAEFIK_VERSION:?}'
+      platforms:
+        - 'linux/amd64'
+        - 'linux/arm/v6'
+        - 'linux/arm64/v8'
+        - 'linux/s390x'
+    image: 'tobygr/traefik-proxy:${TRAEFIK_VERSION:?}'
     restart: always
     environment:
       FQDN: '${FQDN}'
