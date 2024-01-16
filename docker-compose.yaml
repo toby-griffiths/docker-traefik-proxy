@@ -21,7 +21,7 @@ services:
     image: 'tobygr/traefik-proxy:${TRAEFIK_VERSION:?}'
     restart: always
     environment:
-      FQDN: '${FQDN}'
+      FQDN: '${FQDN:-dev.localhost}'
     ports:
       - "80:80"
       - "443:443"
@@ -48,7 +48,7 @@ services:
       service: traefik-proxy
       function: test-container
       traefik.enable: true
-      traefik.http.routers.traefik-whoami.rule: Host(`whoami.${FQDN}`)
+      traefik.http.routers.traefik-whoami.rule: Host(`whoami.${FQDN:-dev.localhost}`)
       traefik.http.routers.traefik-whoami.tls: true
       traefik.http.routers.traefik-whoami.entrypoints: https
       traefik.http.services.traefik-whoami.loadbalancer.server.port: 80
