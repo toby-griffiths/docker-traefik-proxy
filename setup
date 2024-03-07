@@ -64,7 +64,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080" # The Web UI (enabled by --api)
     networks:
       - traefik
     volumes:
@@ -201,6 +200,8 @@ rm -Rf /tmp/traefik-proxy
 set +x
 echo
 echo "Traefik proxy setup"
+echo
+echo "To view the dashboard, open https://traefik.dev.localhost"
 echo
 echo "To proxy an image add the container to the \`${network_name}\` network, and add the minimal"
 echo "labels…"
