@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-traefik_version=2.11
+traefik_version=3.6.8
 
 TRAEFIK_VERSION=$traefik_version docker compose build \
     --pull \
