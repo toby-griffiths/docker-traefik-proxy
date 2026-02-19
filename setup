@@ -44,7 +44,7 @@ project_name="${name}-traefik-proxy"
 docker pull "${proxy_image_name}"
 docker pull "${whoami_image_name}"
 
-cat <<EOF | docker compose -f /dev/stdin -p "${project_name}" up -d
+cat <<EOF | docker compose --env-file /dev/null -f /dev/stdin -p "${project_name}" up -d
 version: '3'
 
 networks:
