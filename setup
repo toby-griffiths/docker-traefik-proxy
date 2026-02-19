@@ -41,6 +41,9 @@ set -x
 
 project_name="${name}-traefik-proxy"
 
+docker pull "${proxy_image_name}"
+docker pull "${whoami_image_name}"
+
 cat <<EOF | docker compose -f /dev/stdin -p "${project_name}" up -d
 version: '3'
 
@@ -105,7 +108,7 @@ echo
 echo "Adding certificate as trustRoot to keychain"
 
 testForCertFile () {
-  docker compose -p "${project_name}" exec traefik ls -als | grep -q server.crt
+  docker compose -p "${project_name}" exec traefik ls -als | grep -q ca.crt
   return
 }
 
@@ -135,9 +138,9 @@ fi
 set -x
 
 mkdir /tmp/traefik-proxy || true
-cert_file="/tmp/traefik-proxy/server.crt"
+cert_file="/tmp/traefik-proxy/ca.crt"
 
-docker compose -p "${project_name}" exec traefik cat /opt/traefik/certs/server.crt > "${cert_file}"
+docker compose -p "${project_name}" exec traefik cat /opt/traefik/certs/ca.crt > "${cert_file}"
 
 set +x
 
@@ -168,7 +171,7 @@ case "$(uname -s)" in
       echo "${system_trust_certificate_directory?'Unknown platform type'}" > /dev/null || exit 1
       set -x
 
-      org_name=$(docker compose -p "${project_name}" exec traefik sh -c "openssl x509 -in server.crt -noout -subject -nameopt multiline | grep organizationName | sed -n 's/ *organizationName *= //p'")
+      org_name=$(docker compose -p "${project_name}" exec traefik sh -c "openssl x509 -in /opt/traefik/certs/ca.crt -noout -subject -nameopt multiline | grep organizationName | sed -n 's/ *organizationName *= //p'")
       cert_filename="${org_name}.crt"
 
       sudo cp "${cert_file}" "${system_trust_certificate_directory}/${cert_filename}" || (echo "Unable to copy certificate to trust store" && exit 1)

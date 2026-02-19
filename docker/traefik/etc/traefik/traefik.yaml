@@ -1,4 +1,3 @@
-# Docker configuration backend
 providers:
   docker:
     exposedByDefault: false
@@ -6,7 +5,6 @@ providers:
     directory: /etc/traefik/dynamic_config
     watch: true
 
-# API and dashboard configuration
 api:
   dashboard: true
   insecure: true
@@ -17,12 +15,11 @@ entryPoints:
     http:
       redirections:
         entryPoint:
-          # Redirect all http requests to https
           to: https
+          scheme: https
   https:
     address: ':443'
-  http3:
-    address: ':443/udp'
+    http3: {}
 
 log:
   level: DEBUG

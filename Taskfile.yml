@@ -1,0 +1,67 @@
+version: '3'
+
+vars:
+  TRAEFIK_VERSION:
+    sh: grep traefik_version bin/build.sh | head -1 | cut -d= -f2
+
+tasks:
+  build:
+    desc: Build multi-arch image and push to Docker Hub
+    cmds:
+      - ./bin/build.sh
+
+  build:local:
+    desc: Build image for local platform only (no push)
+    cmds:
+      - TRAEFIK_VERSION={{.TRAEFIK_VERSION}} docker compose build --pull
+
+  up:
+    desc: Start the Traefik proxy (local compose)
+    cmds:
+      - TRAEFIK_VERSION={{.TRAEFIK_VERSION}} docker compose up -d
+
+  down:
+    desc: Stop and remove the Traefik proxy containers
+    cmds:
+      - TRAEFIK_VERSION={{.TRAEFIK_VERSION}} docker compose down
+
+  restart:
+    desc: Restart the Traefik proxy
+    cmds:
+      - TRAEFIK_VERSION={{.TRAEFIK_VERSION}} docker compose restart
+
+  logs:
+    desc: Tail Traefik logs
+    cmds:
+      - TRAEFIK_VERSION={{.TRAEFIK_VERSION}} docker compose logs -f traefik
+
+  shell:
+    desc: Open a shell in the Traefik container
+    cmds:
+      - TRAEFIK_VERSION={{.TRAEFIK_VERSION}} docker compose exec traefik sh
+
+  trust-cert:
+    desc: Install the CA certificate as a trusted root in the OS keychain
+    cmds:
+      - |
+        mkdir -p /tmp/traefik-proxy
+        TRAEFIK_VERSION={{.TRAEFIK_VERSION}} docker compose exec traefik \
+          cat /opt/traefik/certs/ca.crt > /tmp/traefik-proxy/ca.crt
+        if [ "$(uname -s)" = "Darwin" ]; then
+          sudo security add-trusted-cert -d -r trustRoot \
+            -k /Library/Keychains/System.keychain /tmp/traefik-proxy/ca.crt
+        fi
+        rm -rf /tmp/traefik-proxy
+
+  upgrade:
+    desc: Pull latest image and restart proxy (preserves certs volume & network)
+    cmds:
+      - docker pull tobygr/traefik-proxy:latest
+      - TRAEFIK_VERSION={{.TRAEFIK_VERSION}} docker compose pull
+      - TRAEFIK_VERSION={{.TRAEFIK_VERSION}} docker compose up -d --force-recreate traefik
+
+  tag-latest:
+    desc: Tag the current version image as 'latest' and push to Docker Hub
+    cmds:
+      - docker tag tobygr/traefik-proxy:{{.TRAEFIK_VERSION}} tobygr/traefik-proxy:latest
+      - docker push tobygr/traefik-proxy:latest
